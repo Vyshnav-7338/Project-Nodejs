@@ -1,106 +1,70 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const myRouter = express.Router();
-const UserModel = require("../models/Users");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const multer = require("multer");
-const path = require("path");
+const User = require("../models/User");
+const futils = require("../utils/fileutils");
+const utils = require("../utils/utils");
 myRouter.use(bodyParser.json());
 
-//Passport Size Image Storage function
-const storage = multer.diskStorage({
-  destination: (req, file, cd) => {
-    cd(null, "public/images");
-  },
-  filename: (req, file, cb) => {
-    cb(
-      null,
-      file.fieldname + "_" + Date.now() + path.extname(file.originalname)
-    );
-  },
-});
-const upload = multer({
-  storage: storage,
-});
-// Id Proof Front View Image Storage function
-const storageFrontView = multer.diskStorage({
-  destination: (req, file, cd) => {
-    cd(null, "public/Id-Proof-Images/FrontView");
-  },
-  filename: (req, FrontView, cb) => {
-    cb(
-      null,
-      FrontView.fieldname +
-        "_" +
-        Date.now() +
-        path.extname(FrontView.originalname)
-    );
-  },
-});
-const uploadFrontView = multer({
-  storage: storageFrontView,
-});
-// Id Proof Back View Image Storage function
-const storageBackView = multer.diskStorage({
-  destination: (req, file, cd) => {
-    cd(null, "public/Id-Proof-Images/BackView");
-  },
-  filename: (req, BackView, cb) => {
-    cb(
-      null,
-      BackView.fieldname +
-        "_" +
-        Date.now() +
-        path.extname(BackView.originalname)
-    );
-  },
-});
-const uploadBackView = multer({
-  storage: storageBackView,
-});
+myRouter.route("/api/register/").post(async (req, res, next) => {
+  console.log("user register called");
+  var body = req.body;
+  let files = req.files;
 
-//Create Cookies
-const verifyUser = (req, res, next) => {
-  const token = req.cookies.token;
-  if (!token) {
-    return res.json("The Token was not available");
-  } else {
-    jwt.verify(token, "jwt-secret-key", (err, decoded) => {
-      if (err) return res.json("Wrong Token");
-      next();
-    });
+  if (files["idProof_back"] == null) {
+    res
+      .status(400)
+      .send({ status: "error", message: "id proof back required" });
+    return;
   }
-};
-
-myRouter
-  .route("/api/register")
-  .post(
-    upload.single("file"),
-    uploadFrontView.single("BackView"),
-    uploadBackView.single("Backview"),
-    (req, res) => {
-      const { name, email, phone, gender, DOB, addressProof, password } =
-        req.body;
-      bcrypt
-        .hash(password, 10)
-        .then((hash) => {
-          UserModel.create({
-            name,
-            email,
-            phone,
-            gender,
-            DOB,
-            addressProof,
-            password: hash,
-            image: req.file.filename,
-            FrontView: req.FrontView.filename,
-            BackView: req.BackView.filename,
-          })
-            .then((register) => res.json(register))
-            .catch((err) => res.json(err));
-        })
-        .catch((err) => res.json(err.message));
+  if (body["password"] != null) {
+    if (utils.CheckPasswordStrong(body["password"]) === true) {
+      if (files != null) {
+        if (files["idProof"] != null) {
+          body["idProof"] = await futils.getFileObject(files["idProof"]);
+          if (files["idProof_back"] != null)
+            body["idProof_back"] = await futils.getFileObject(
+              files["idProof_back"]
+            );
+          if (files["photo"] != null)
+            body["photo"] = await futils.getFileObject(files["photo"]);
+          user_register(body, res, next);
+        } else {
+          res
+            .status(400)
+            .send({ status: "error", message: "id proof required" });
+        }
+      } else {
+        res.status(400).send({ status: "error", message: "id proof required" });
+      }
+    } else {
+      res.status(400).send({
+        status: "error",
+        message: utils.CheckPasswordStrong(body["password"]),
+      });
     }
-  );
+  } else {
+    res.status(400).send({ status: "error", message: "password required" });
+  }
+});
+
+async function user_register(body, res, next) {
+  body["role"] = "user";
+  var user = new User(body);
+  await user
+    .save()
+    .catch((err) => {
+      console.log(err);
+
+      next(err);
+    })
+    .then(async (val) => {
+      res.send("success");
+      console.log("user registered in succesfully");
+    });
+}
+
+const handleErrors = require("../middlewares/HandleError");
+const { password } = require("../config");
+myRouter.use(handleErrors);
 module.exports = myRouter;
