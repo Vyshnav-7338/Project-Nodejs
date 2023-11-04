@@ -10,13 +10,17 @@ myRouter.route("/api/register/").post(async (req, res, next) => {
   console.log("user register called");
   var body = req.body;
   let files = req.files;
-
+  const videoFile = req.files.video_verification;
+  const fileName = videoFile.name_video_verification;
   if (files["idProof_back"] == null) {
     res
       .status(400)
       .send({ status: "error", message: "id proof back required" });
     return;
   }
+  if (files["video_verification"==null]) {
+    return res.status(400).send('No files were uploaded.');}
+    
   if (body["password"] != null) {
     if (utils.CheckPasswordStrong(body["password"]) === true) {
       if (files != null) {

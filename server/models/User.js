@@ -11,6 +11,7 @@ const UserSchema = new mongoose.Schema({
   image: String,
   FrontView: String,
   BackView: String,
+  video_verfication:String,
 });
 const UserModel = mongoose.model("users", UserSchema);
 module.exports = UserModel;
